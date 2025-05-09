@@ -1,4 +1,4 @@
-const socket = io('ws://localhost:3500')
+const socket = io('https://dwij-25.github.io/lesson05-server/')
 
 const msgInput = document.querySelector('#message')
 const nameInput = document.querySelector('#name')
