@@ -1,3 +1,7 @@
+"scripts": {
+  "start": "node index.js"
+}
+
 {
   "name": "lesson05",
   "version": "1.0.0",
