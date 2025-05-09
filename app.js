@@ -1,4 +1,5 @@
-const socket = io('https://dwij-25.github.io/lesson05-server/')
+const socket = io() // Automatically connects to same origin in production
+
 
 const msgInput = document.querySelector('#message')
 const nameInput = document.querySelector('#name')
