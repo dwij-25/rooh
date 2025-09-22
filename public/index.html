@@ -1,45 +1,49 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Calm Chat</title>
-  <link href="style.css" rel="stylesheet" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"
-    integrity="sha512-Xm9qbB6Pu06k3PUwPj785dyTl6oHxgsv9nHp7ej7nCpAqGZT3OZpsELuCYX05DdonFpTlBpXMOxjavIAIUwr0w=="
-    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Therapy Chat</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
   <script defer src="app.js"></script>
 </head>
 <body>
-  <main class="chat-wrapper">
-    
-    <!-- Join form -->
-    <section class="join-section">
-      <h1>🌸 Welcome to Calm Chat 🌸</h1>
-      <form class="form-join">
-        <input type="text" id="name" maxlength="8" placeholder="Your name" required />
-        <input type="text" id="room" placeholder="Chat room" required />
-        <button id="join" type="submit">Join</button>
+  <main>
+    <!-- Role Selection -->
+    <div id="role-selection">
+      <h1>Welcome to Therapy Chat</h1>
+      <button onclick="chooseRole('therapist')">Therapist</button>
+      <button onclick="chooseRole('student')">Student</button>
+    </div>
+
+    <!-- Therapist Interface -->
+    <div id="therapist-ui" class="hidden">
+      <h2>Therapist Dashboard</h2>
+      <form id="therapist-form">
+        <input type="text" id="therapist-name" placeholder="Your Name" required>
+        <input type="text" id="room-name" placeholder="Room Name" required>
+        <input type="time" id="available-time" required>
+        <button type="submit">Create Room</button>
       </form>
-    </section>
+      <div id="therapist-rooms"></div>
+    </div>
 
-    <!-- Chat section -->
-    <section class="chat-section hidden">
-      <header class="chat-header">
-        <h2 id="roomTitle">Chat Room</h2>
-        <p class="user-list"></p>
-      </header>
+    <!-- Student Interface -->
+    <div id="student-ui" class="hidden">
+      <h2>Available Therapists</h2>
+      <ul id="therapist-list"></ul>
+    </div>
 
+    <!-- Chat Interface -->
+    <div id="chat-ui" class="hidden">
+      <h2 id="chat-room-name"></h2>
       <ul class="chat-display"></ul>
-
-      <p class="activity"></p>
-
-      <form class="form-msg">
-        <input type="text" id="message" placeholder="Type your message..." required />
+      <form id="chat-form">
+        <input type="text" id="message" placeholder="Type your message..." required>
         <button type="submit">Send</button>
       </form>
-    </section>
-
+    </div>
   </main>
 </body>
 </html>
