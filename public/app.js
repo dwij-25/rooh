@@ -1,111 +1,114 @@
-const socket = io(); // Connects automatically
+const socket = io();
 
-// DOM Elements
-const joinForm = document.querySelector('.form-join');
-const msgForm = document.querySelector('.form-msg');
-const msgInput = document.querySelector('#message');
-const nameInput = document.querySelector('#name');
-const roomInput = document.querySelector('#room');
+// Elements
+const therapistBtn = document.getElementById("therapist-btn");
+const studentBtn = document.getElementById("student-btn");
+const therapistInterface = document.getElementById("therapist-interface");
+const studentInterface = document.getElementById("student-interface");
+const chatInterface = document.getElementById("chat-interface");
 
-const joinSection = document.querySelector('.join-section') || document.querySelector('main'); 
-const chatSection = document.querySelector('.chat-section');
-const chatDisplay = document.querySelector('.chat-display');
-const activity = document.querySelector('.activity');
-const usersList = document.querySelector('.user-list');
-const roomList = document.querySelector('.room-list');
-const roomTitle = document.getElementById('roomTitle');
+const therapistForm = document.getElementById("therapist-form");
+const therapistList = document.getElementById("therapist-list");
+const refreshBtn = document.getElementById("refresh-btn");
 
-let currentName = '';
-let currentRoom = '';
+const chatDisplay = document.querySelector(".chat-display");
+const msgForm = document.getElementById("msg-form");
+const msgInput = document.getElementById("message");
+const chatRoomTitle = document.getElementById("chat-room-title");
 
-// ------------------- JOIN ROOM -------------------
-joinForm.addEventListener('submit', e => {
+let currentRoom = null;
+let role = null;
+
+// Role selection
+therapistBtn.onclick = () => {
+  role = "therapist";
+  therapistInterface.classList.remove("hidden");
+  studentInterface.classList.add("hidden");
+};
+
+studentBtn.onclick = () => {
+  role = "student";
+  studentInterface.classList.remove("hidden");
+  therapistInterface.classList.add("hidden");
+  socket.emit("getTherapists");
+};
+
+// Therapist creates room
+therapistForm.addEventListener("submit", (e) => {
   e.preventDefault();
+  const name = document.getElementById("therapist-name").value;
+  const room = document.getElementById("therapist-room").value;
+  const time = document.getElementById("therapist-time").value;
 
-  currentName = nameInput.value.trim();
-  currentRoom = roomInput.value.trim();
+  socket.emit("createRoom", { name, room, time });
+  currentRoom = room;
 
-  if (!currentName || !currentRoom) return;
-
-  socket.emit('enterRoom', { name: currentName, room: currentRoom });
-
-  // Switch UI: hide join, show chat
-  if (joinSection) joinSection.classList.add('hidden');
-  chatSection.classList.remove('hidden');
-  roomTitle.textContent = `Room: ${currentRoom}`;
+  chatRoomTitle.textContent = `Room: ${room}`;
+  chatInterface.classList.remove("hidden");
 });
 
-// ------------------- SEND MESSAGE -------------------
-msgForm.addEventListener('submit', e => {
-  e.preventDefault();
-  if (!msgInput.value.trim()) return;
+// Student refreshes therapist list
+refreshBtn.onclick = () => socket.emit("getTherapists");
 
-  socket.emit('message', {
-    name: currentName,
-    text: msgInput.value
+// Display therapists
+socket.on("therapistList", (therapists) => {
+  therapistList.innerHTML = "";
+  therapists.forEach((t) => {
+    const li = document.createElement("li");
+    li.textContent = `${t.name} | Room: ${t.room} | Available at: ${t.time}`;
+
+    const now = new Date();
+    const availableTime = new Date();
+    const [hours, minutes] = t.time.split(":");
+    availableTime.setHours(hours, minutes);
+
+    if (availableTime > now) {
+      const bookBtn = document.createElement("button");
+      bookBtn.textContent = "Book";
+      bookBtn.onclick = () => {
+        const student = prompt("Enter your name to book:");
+        if (student) {
+          socket.emit("bookTherapist", { student, room: t.room });
+        }
+      };
+      li.appendChild(bookBtn);
+    } else {
+      const joinBtn = document.createElement("button");
+      joinBtn.textContent = "Join";
+      joinBtn.onclick = () => joinRoom(t.room);
+      li.appendChild(joinBtn);
+    }
+
+    therapistList.appendChild(li);
   });
-
-  msgInput.value = '';
-  msgInput.focus();
 });
 
-// Typing activity
-msgInput.addEventListener('keypress', () => {
-  socket.emit('activity', currentName);
+// Booking confirmation
+socket.on("bookingConfirmed", ({ student, room }) => {
+  alert(`✅ ${student}, your session in room "${room}" has been booked!`);
 });
 
-// ------------------- SOCKET EVENTS -------------------
-socket.on('message', ({ name, text, time }) => {
-  activity.textContent = '';
+// Join room
+function joinRoom(room) {
+  currentRoom = room;
+  chatRoomTitle.textContent = `Room: ${room}`;
+  chatInterface.classList.remove("hidden");
+  socket.emit("joinRoom", { room, role });
+}
 
-  const li = document.createElement('li');
-  li.classList.add('message');
-
-  if (name === currentName) {
-    li.classList.add('self');
-  } else if (name !== 'Admin') {
-    li.classList.add('other');
-  } else {
-    li.classList.add('admin');
+// Send message
+msgForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  if (msgInput.value && currentRoom) {
+    socket.emit("chatMessage", { room: currentRoom, msg: msgInput.value });
+    msgInput.value = "";
   }
+});
 
-  li.innerHTML =
-    name === 'Admin'
-      ? `<div class="post__text">${text}</div>`
-      : `
-        <div><strong>${name}</strong></div>
-        <div>${text}</div>
-        <div class="meta">${time}</div>
-      `;
-
+// Display messages
+socket.on("message", ({ user, msg }) => {
+  const li = document.createElement("li");
+  li.textContent = `${user}: ${msg}`;
   chatDisplay.appendChild(li);
   chatDisplay.scrollTop = chatDisplay.scrollHeight;
 });
-
-// Activity indicator
-let activityTimer;
-socket.on('activity', name => {
-  activity.textContent = `${name} is typing...`;
-
-  clearTimeout(activityTimer);
-  activityTimer = setTimeout(() => {
-    activity.textContent = '';
-  }, 2000);
-});
-
-// User list
-socket.on('userList', ({ users }) => {
-  usersList.textContent = '';
-  if (users && users.length > 0) {
-    usersList.innerHTML = `<em>Users in ${currentRoom}:</em> ${users.map(u => u.name).join(', ')}`;
-  }
-});
-
-// Room list
-socket.on('roomList', ({ rooms }) => {
-  roomList.textContent = '';
-  if (rooms && rooms.length > 0) {
-    roomList.innerHTML = `<em>Active Rooms:</em> ${rooms.join(', ')}`;
-  }
-});
-
