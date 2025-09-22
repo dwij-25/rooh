@@ -1,112 +1,111 @@
-const socket = io() // Automatically connects to same origin in production
+const socket = io(); // Connects automatically
 
+// DOM Elements
+const joinForm = document.querySelector('.form-join');
+const msgForm = document.querySelector('.form-msg');
+const msgInput = document.querySelector('#message');
+const nameInput = document.querySelector('#name');
+const roomInput = document.querySelector('#room');
 
-const msgInput = document.querySelector('#message')
-const nameInput = document.querySelector('#name')
-const chatRoom = document.querySelector('#room')
-const activity = document.querySelector('.activity')
-const usersList = document.querySelector('.user-list')
-const roomList = document.querySelector('.room-list')
-const chatDisplay = document.querySelector('.chat-display')
+const joinSection = document.querySelector('.join-section') || document.querySelector('main'); 
+const chatSection = document.querySelector('.chat-section');
+const chatDisplay = document.querySelector('.chat-display');
+const activity = document.querySelector('.activity');
+const usersList = document.querySelector('.user-list');
+const roomList = document.querySelector('.room-list');
+const roomTitle = document.getElementById('roomTitle');
 
-function sendMessage(e) {
-    e.preventDefault()
-    if (nameInput.value && msgInput.value && chatRoom.value) {
-        socket.emit('message', {
-            name: nameInput.value,
-            text: msgInput.value
-        })
-        msgInput.value = ""
-    }
-    msgInput.focus()
-}
+let currentName = '';
+let currentRoom = '';
 
-function enterRoom(e) {
-    e.preventDefault()
-    if (nameInput.value && chatRoom.value) {
-        socket.emit('enterRoom', {
-            name: nameInput.value,
-            room: chatRoom.value
-        })
-    }
-}
+// ------------------- JOIN ROOM -------------------
+joinForm.addEventListener('submit', e => {
+  e.preventDefault();
 
-document.querySelector('.form-msg')
-    .addEventListener('submit', sendMessage)
+  currentName = nameInput.value.trim();
+  currentRoom = roomInput.value.trim();
 
-document.querySelector('.form-join')
-    .addEventListener('submit', enterRoom)
+  if (!currentName || !currentRoom) return;
 
+  socket.emit('enterRoom', { name: currentName, room: currentRoom });
+
+  // Switch UI: hide join, show chat
+  if (joinSection) joinSection.classList.add('hidden');
+  chatSection.classList.remove('hidden');
+  roomTitle.textContent = `Room: ${currentRoom}`;
+});
+
+// ------------------- SEND MESSAGE -------------------
+msgForm.addEventListener('submit', e => {
+  e.preventDefault();
+  if (!msgInput.value.trim()) return;
+
+  socket.emit('message', {
+    name: currentName,
+    text: msgInput.value
+  });
+
+  msgInput.value = '';
+  msgInput.focus();
+});
+
+// Typing activity
 msgInput.addEventListener('keypress', () => {
-    socket.emit('activity', nameInput.value)
-})
+  socket.emit('activity', currentName);
+});
 
-// Listen for messages 
-socket.on("message", (data) => {
-    activity.textContent = ""
-    const { name, text, time } = data
-    const li = document.createElement('li')
-    li.className = 'post'
-    if (name === nameInput.value) li.className = 'post post--left'
-    if (name !== nameInput.value && name !== 'Admin') li.className = 'post post--right'
-    if (name !== 'Admin') {
-        li.innerHTML = `<div class="post__header ${name === nameInput.value
-            ? 'post__header--user'
-            : 'post__header--reply'
-            }">
-        <span class="post__header--name">${name}</span> 
-        <span class="post__header--time">${time}</span> 
-        </div>
-        <div class="post__text">${text}</div>`
-    } else {
-        li.innerHTML = `<div class="post__text">${text}</div>`
-    }
-    document.querySelector('.chat-display').appendChild(li)
+// ------------------- SOCKET EVENTS -------------------
+socket.on('message', ({ name, text, time }) => {
+  activity.textContent = '';
 
-    chatDisplay.scrollTop = chatDisplay.scrollHeight
-})
+  const li = document.createElement('li');
+  li.classList.add('message');
 
-let activityTimer
-socket.on("activity", (name) => {
-    activity.textContent = `${name} is typing...`
+  if (name === currentName) {
+    li.classList.add('self');
+  } else if (name !== 'Admin') {
+    li.classList.add('other');
+  } else {
+    li.classList.add('admin');
+  }
 
-    // Clear after 3 seconds 
-    clearTimeout(activityTimer)
-    activityTimer = setTimeout(() => {
-        activity.textContent = ""
-    }, 3000)
-})
+  li.innerHTML =
+    name === 'Admin'
+      ? `<div class="post__text">${text}</div>`
+      : `
+        <div><strong>${name}</strong></div>
+        <div>${text}</div>
+        <div class="meta">${time}</div>
+      `;
 
+  chatDisplay.appendChild(li);
+  chatDisplay.scrollTop = chatDisplay.scrollHeight;
+});
+
+// Activity indicator
+let activityTimer;
+socket.on('activity', name => {
+  activity.textContent = `${name} is typing...`;
+
+  clearTimeout(activityTimer);
+  activityTimer = setTimeout(() => {
+    activity.textContent = '';
+  }, 2000);
+});
+
+// User list
 socket.on('userList', ({ users }) => {
-    showUsers(users)
-})
+  usersList.textContent = '';
+  if (users && users.length > 0) {
+    usersList.innerHTML = `<em>Users in ${currentRoom}:</em> ${users.map(u => u.name).join(', ')}`;
+  }
+});
 
+// Room list
 socket.on('roomList', ({ rooms }) => {
-    showRooms(rooms)
-})
+  roomList.textContent = '';
+  if (rooms && rooms.length > 0) {
+    roomList.innerHTML = `<em>Active Rooms:</em> ${rooms.join(', ')}`;
+  }
+});
 
-function showUsers(users) {
-    usersList.textContent = ''
-    if (users) {
-        usersList.innerHTML = `<em>Users in ${chatRoom.value}:</em>`
-        users.forEach((user, i) => {
-            usersList.textContent += ` ${user.name}`
-            if (users.length > 1 && i !== users.length - 1) {
-                usersList.textContent += ","
-            }
-        })
-    }
-}
-
-function showRooms(rooms) {
-    roomList.textContent = ''
-    if (rooms) {
-        roomList.innerHTML = '<em>Active Rooms:</em>'
-        rooms.forEach((room, i) => {
-            roomList.textContent += ` ${room}`
-            if (rooms.length > 1 && i !== rooms.length - 1) {
-                roomList.textContent += ","
-            }
-        })
-    }
-}
